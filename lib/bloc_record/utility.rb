@@ -20,14 +20,16 @@ module BlocRecord
     end
 
     # This method converts value to an appropriate SQL string.
+    # Note: "30" will be retuned. But combining other string and "30" is "age = 30".
+    # Note: "null" will be returned. But combining other string and "null" is "phone = null" 
     def sql_strings(value)
       case value
-      when String
-        "'#{value}'"
-      when Numeric
-        value.to_s
-      else
-        "null"
+      when String     # "name = #{sql_strings("John")}"
+        "'#{value}'"  # "name = 'John'"
+      when Numeric    # "age = #{sql_strings(30)}"
+        value.to_s    # "age = 30"
+      else            # "phone = #{sql_strings(true)}"
+        "null"        # "phone = null"
       end
     end
 
