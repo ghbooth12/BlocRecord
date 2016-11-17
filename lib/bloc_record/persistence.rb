@@ -18,9 +18,10 @@ module Persistence
       # We call reload_obj to copy whatever is stored in the database back to the model object.
       # This is necessary in case SQL rejected or changed any of the data.
       BlocRecord::Utility.reload_obj(self)
-      return true
+      return true # When created, save! ends.
     end
 
+    # self.id exists, which means the existing 'data' is edited. 
     fields = self.class.attributes.map { |col|
       "#{col}=#{BlocRecord::Utility.sql_strings(self.instance_variable_get("@#{col}"))}"
     }.join(",")
