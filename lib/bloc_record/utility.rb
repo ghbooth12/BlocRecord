@@ -21,7 +21,7 @@ module BlocRecord
 
     # This method converts value to an appropriate SQL string.
     # Note: "30" will be retuned. But combining other string and "30" is "age = 30".
-    # Note: "null" will be returned. But combining other string and "null" is "phone = null" 
+    # Note: "null" will be returned. But combining other string and "null" is "phone = null"
     def sql_strings(value)
       case value
       when String     # "name = #{sql_strings("John")}"
@@ -49,7 +49,7 @@ module BlocRecord
 
     def reload_obj(dirty_obj)
       # Find dirty_obj's saved representation.
-      persisted_obj = dirty_obj.class.find(dirty_obj.id)
+      persisted_obj = dirty_obj.class.find_one(dirty_obj.id)
       dirty_obj.instance_variables.each do |instance_variable|
         # Overwrite the instance variable values with the stored values from the database.
         # This will discard any unsaved changes to the given object.

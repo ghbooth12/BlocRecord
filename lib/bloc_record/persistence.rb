@@ -21,7 +21,7 @@ module Persistence
       return true # When created, save! ends.
     end
 
-    # self.id exists, which means the existing 'data' is edited. 
+    # self.id exists, which means the existing 'data' is edited.
     fields = self.class.attributes.map { |col|
       "#{col}=#{BlocRecord::Utility.sql_strings(self.instance_variable_get("@#{col}"))}"
     }.join(",")

@@ -32,9 +32,10 @@ module Schema
     unless @schema
       @schema = {}
       connection.table_info(table) do |col|
-        @schema[col["name"] = col["type"]]
+        @schema[col["name"]] = col["type"]
       end
     end
+
     @schema
   end
 
