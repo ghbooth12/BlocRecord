@@ -1,6 +1,12 @@
 require 'sqlite3'
 
 module Selection
+  def method_missing(m, *args, &block)
+    if m == :find_by_name
+      find_by(:name, *args[0])
+    end
+  end
+
   # This method can handle multiple ids using the splat operator.
   # splat operator combines any number of arguments inito an array.
   # e.g. find(4, 8, 11) will be ids = [4, 8, 11]
@@ -14,7 +20,7 @@ module Selection
         WHERE id IN (#{ids.join(',')});
       SQL
 
-      row_to_array(rows)
+      rows_to_array(rows)
     end
   end
 
@@ -37,6 +43,28 @@ module Selection
     SQL
 
     init_object_from_row(row)
+  end
+
+  # This method retrieves a batch of records and then yield each record to a block individually as a model.
+  def find_each(options)
+    rows = connection.execute(<<-SQL)
+      SELECT #{columns.join(',')} FROM #{table}
+      LIMIT #{options[:batch_size]}
+    SQL
+
+    for row in rows_to_array(rows)
+      yield(row)
+    end
+  end
+
+  # This method yields batches to a block as an array of models.
+  def find_in_batches(options)
+    rows = connection.execute(<<-SQL)
+      SELECT #{columns.join(',')} FROM #{table}
+      LIMIT #{options[:batch_size]}
+    SQL
+
+    yield(rows_to_array(rows))
   end
 
   # This method returns either one model object or an array.
