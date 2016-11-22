@@ -14,7 +14,7 @@ module Selection
         WHERE id IN (#{ids.join(',')});
       SQL
 
-      row_to_array(rows)
+      rows_to_array(rows)
     end
   end
 
@@ -94,6 +94,87 @@ module Selection
 
     rows_to_array(rows)
   end
+
+  def where(*args)
+    # 1) Handle array conditions
+    # e.g. Entry.where("phone_number = ?", params[:phone_number])
+    if args.count > 1
+      expression = args.shift # Removes the first element and returns it
+      params = args
+    else
+      case args.first
+      # 2) Handle string conditions
+      # e.g. Entry.where("phone_number = '999-999-9999'")
+      when String
+        expression = args.first # It will be used directly in the WHERE clause.
+      # 3) Handle hash conditions
+      # e.g. Entry.where(name: 'BlocHead', age: 30)
+      when Hash
+        expression_hash = BlocRecord::Utility.convert_keys(args.first)
+        expression = expression_hash.map {|key, value| "#{key}=#{BlocRecord::Utility.sql_strings(value)}"}.join(" and ")
+      end
+    end
+
+    sql = <<-SQL
+      SELECT #{columns.join(',')} FROM #{table}
+      WHERE #{expression};
+    SQL
+
+    # params are passed in to connection.execute(), which handles "?" replacement.
+    rows = connection.execute(sql, params)
+    rows_to_array(rows)
+  end
+
+  # Binary search is one example of an algorithm where the order is important.
+  # This class method allows ordering by a String or Symbol.
+  # 1) Sting conditions: Entry.order("phone_number"), Entry.order("phone_number, name")
+  # 2) Hash conditions: Entry.order(:phone_number)
+  # 3) Array conditions: Entry.order("name", "phone_number"), Entry.order(:name, :phone_number)
+  def order(*args)
+    if args.count > 1
+      order = args.join(",")
+    else
+      order = order.first.to_s  # If it's a Symbol, to_s coverts it to a string.
+    end
+    rows = connection.execute <<-SQL
+      SELECT * FROM #{table}
+      ORDER BY #{order};
+    SQL
+    rows_to_array(rows)
+  end
+
+  def join(*args)
+    # 3) .join Multiple Association with Symbols
+    # If more than one element is passed in, our query JOINs on multiple associations.
+    if args.count > 1
+      joins = args.map {|arg| "INNER JOIN #{arg} ON #{arg}.#{table}_id = #{table}.id"}.join(" ")
+      rows = connection.execute <<-SQL
+        SELECT * FROM #{table}
+        #{joins}
+      SQL
+    else
+      case args.first
+      when String
+        # 1) .join with String SQL
+        # BlocRecord users pass in a handwritten JOIN statement like:
+        # e.g. 'JOIN table_name ON some_condition'
+        rows = connection.execute <<-SQL
+          SELECT * FROM #{table}
+          #{BlocRecord::Utility.sql_strings(args.first)};
+        SQL
+      when Symbol
+        # 2) .join a single association with a Symbol
+        # e.g. Employee.join(:Department) results in the query:
+        # SELECT * FROM employee JOIN deparment ON department.employee_id = employee.id;
+        # But this way should follow standard naming conventions.
+        rows = connection.execute <<-SQL
+          SELECT * FROM #{table}
+          INNER JOIN #{args.first} ON #{args.first}.#{table}_id = #{table}.id;
+        SQL
+      end # Ends case
+    end # Ends if-else
+    rows_to_array(rows)
+  end # Ends join()
 
   private
   def init_object_from_row(row)
