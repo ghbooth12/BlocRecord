@@ -131,14 +131,25 @@ module Selection
   # 2) Hash conditions: Entry.order(:phone_number)
   # 3) Array conditions: Entry.order("name", "phone_number"), Entry.order(:name, :phone_number)
   def order(*args)
-    if args.count > 1
-      order = args.join(",")
-    else
-      order = order.first.to_s  # If it's a Symbol, to_s coverts it to a string.
+    orders = {}
+    for arg in args
+      case arg
+      when String
+        orders.merge!(string_order(arg)) # merge: a way to combine hashes.
+      when Symbol
+        orders[arg] = nil
+      when Hash
+        orders.merge!(arg)
+      end
     end
+
+    # e.g. orders = {:name=>nil, :phone_number=>:desc}
+    # e.g. orders = {"name"=>"asc", "phone_number": "desc"}
+    order_by = hash_to_str(orders)
+
     rows = connection.execute <<-SQL
       SELECT * FROM #{table}
-      ORDER BY #{order};
+      ORDER BY #{order_by};
     SQL
     rows_to_array(rows)
   end
@@ -187,5 +198,39 @@ module Selection
   # This method maps the rows to an array of corresponding model objects.
   def rows_to_array(rows)
     rows.map { |row| new(Hash[columns.zip(row)]) }
+  end
+
+  # This method takes multiple conditions in string and returns a hash of multiple conditions.
+  # e.g. str = "name ASC, phone_number DESC", "name", "name ASC" ...
+  def string_order(str)
+    orders = {}
+    conditions = str.split(',')
+    if conditions.count > 1  # multiple conditions
+      for condition in conditions
+        orders.merge!(divide_string(condition))
+      end
+    else # single condition
+      condition = conditions[0]
+      orders.merge!(divide_string(condition))
+    end
+    orders
+  end
+
+  # This method takes a single condition in string and returns a hash of a single condition.
+  def divide_string(s)
+    orders = {}
+    str = s.downcase  # To change "ASC" to "asc", "DESC" to "desc"
+    if str.include?(" asc") || str.include?(" desc")  # Note: a space before asc/desc
+      pair = str.split(' ')  # pair = ["name", "asc"]
+      orders[pair[0]] = pair[-1]
+    else
+      orders[str] = nil
+    end
+    orders
+  end
+
+  # This method changes a hash in a string format.
+  def hash_to_str(hash)
+    hash.map {|key, val| "#{key} #{val}"}.join(", ")
   end
 end
