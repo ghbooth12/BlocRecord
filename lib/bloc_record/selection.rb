@@ -96,6 +96,8 @@ module Selection
   end
 
   def where(*args)
+    return self if args == []
+
     # 1) Handle array conditions
     # e.g. Entry.where("phone_number = ?", params[:phone_number])
     if args.count > 1
@@ -123,6 +125,11 @@ module Selection
     # params are passed in to connection.execute(), which handles "?" replacement.
     rows = connection.execute(sql, params)
     rows_to_array(rows)
+  end
+
+  def not(hash)
+    str_condition = hash.map {|k,v| "#{k} != '#{v}'"}.join(" AND ")
+    where(str_condition)
   end
 
   # Binary search is one example of an algorithm where the order is important.
