@@ -132,6 +132,18 @@ module Selection
     where(str_condition)
   end
 
+  # This method is chained after ".joins" method.
+  # query: the JOIN query
+  # str: the new query
+  def inner_where(query, str)
+    sql = <<-SQL
+      SELECT * FROM #{table}
+      #{query}
+      WHERE #{str};
+    SQL
+    rows = connection.execute(sql)
+  end
+
   # Binary search is one example of an algorithm where the order is important.
   # This class method allows ordering by a String or Symbol.
   # 1) Sting conditions: Entry.order("phone_number"), Entry.order("phone_number, name")
@@ -205,8 +217,10 @@ module Selection
       SELECT * FROM #{table}
       #{joins}
     SQL
-    
-    rows_to_array(rows)
+
+    arr = rows_to_array(rows)
+    arr.unshift(joins)  # To save the JOIN query
+    arr
   end
 
   private
