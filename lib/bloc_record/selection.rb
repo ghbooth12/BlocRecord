@@ -194,6 +194,21 @@ module Selection
     rows_to_array(rows)
   end # Ends join()
 
+  def joins(hash)
+    join_1 = hash.keys[0]
+    join_2 = hash.values[0]
+
+    joins = "INNER JOIN #{join_1} ON #{join_1}.#{table}_id = #{table}.id " +
+            "INNER JOIN #{join_2} ON #{join_2}.#{join_1}_id = #{join_1}.id"
+
+    rows = connection.execute <<-SQL
+      SELECT * FROM #{table}
+      #{joins}
+    SQL
+    
+    rows_to_array(rows)
+  end
+
   private
   def init_object_from_row(row)
     if row
