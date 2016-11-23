@@ -40,6 +40,21 @@ module Persistence
     self.save! rescue false
   end
 
+  # Update One Attribute With an Instance Method
+  # e.g. p = Person.first
+  # p.update_attribute(:name, "Ben")
+  def update_attribute(attribute, value)
+    self.class.update(self.id, { attribute => value })
+  end
+
+  # Update Multiple Attributes With an Instance Method
+  # This updates multiple attributes at once.
+  # p = Person.first
+  # p.update_attributes(name: "Ben", age: 30)
+  def update_attributes(updates)
+    self.class.update(self.id, updates)
+  end
+
   # create method needs to be a class method. Because we can't call "create" on an object which doesn't exist.
   module ClassMethods
     # attrs is a hash just like the one in the base class initializer.
@@ -65,6 +80,38 @@ module Persistence
       data = Hash[attributes.zip(attrs.values)]
       data["id"] = connection.execute("SELECT last_insert_rowid();")[0][0]
       new(data)
+    end
+
+    # Update Multiple Attributes With a Class Method
+    # e.g. Person.update(15, student: false, group: 'member')
+    # "ids" can be a number or an array of numbers.
+    def update(ids, updates)
+      updates = BlocRecord::Utility.convert_keys(updates)
+      updates.delete "id"
+
+      updates_array = updates.map {|key, value| "#{key}=#{BlocRecord::Utility.sql_strings(value)}"}
+
+      if ids.class == Fixnum
+        where_clause = "WHERE id = #{ids};"
+      elsif ids.class == Array
+        where_clause = ids.empty? ? ";" : "WHERE id IN (#{ids.join(',')});"
+      else # When update_all is executed, id is nil.
+        where_clause = ";"
+      end
+
+      # updates_array * ',' == updates_array.join(',')
+      connection.execute <<-SQL
+        UPDATE #{table}
+        SET #{updates_array * ','}
+        #{where_clause}
+      SQL
+
+      true
+    end
+
+    # Update Multiple Attributes on All Records
+    def update_all(updates)
+      update(nil, updates)
     end
   end # Ends ClassMethods
 end # Ends Persistence
