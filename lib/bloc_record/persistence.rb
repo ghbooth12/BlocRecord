@@ -5,6 +5,12 @@ require 'sqlite3'
 require 'bloc_record/schema'
 
 module Persistence
+  def method_missing(m, *args, &block)
+    if m == :update_name
+      update_attribute(:name, args[0])
+    end
+  end
+
   # self.included is called whenever this module is included.
   # When this haapens, extend adds the ClassMethods methods to Persistence.
   def self.included(base)
