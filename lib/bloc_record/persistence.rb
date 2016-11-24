@@ -86,6 +86,27 @@ module Persistence
     # e.g. Person.update(15, student: false, group: 'member')
     # "ids" can be a number or an array of numbers.
     def update(ids, updates)
+      # people = { 1 => { "first_name" => "David" }, 2 => { "first_name" => "Jeremy" } }
+      # Person.update(people.keys, people.values)
+      if ids.class == Array && updates.class == Array
+        # Each item in "people" executes SQL statement.
+        for i in 0...ids.length
+          updates_array = []
+          hash = updates[i]  # hash: { "first_name" => "David", "age" => 30 }
+
+          for key in hash.keys  # hash.keys: ["first_name", "age"]
+            updates_array << "#{key}=#{BlocRecord::Utility.sql_strings(hash[key])}"
+          end
+
+          connection.execute <<-SQL
+            UPDATE #{table} SET #{updates_array * ','}
+            WHERE id = #{ids[i]}
+          SQL
+        end
+
+        return true
+      end
+
       updates = BlocRecord::Utility.convert_keys(updates)
       updates.delete "id"
 
@@ -107,7 +128,7 @@ module Persistence
       SQL
 
       true
-    end
+    end # Ends update
 
     # Update Multiple Attributes on All Records
     def update_all(updates)
