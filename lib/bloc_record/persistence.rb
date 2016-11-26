@@ -3,6 +3,7 @@
 
 require 'sqlite3'
 require 'bloc_record/schema'
+require 'bloc_record/validation'
 
 module Persistence
   # self.included is called whenever this module is included.
@@ -71,21 +72,25 @@ module Persistence
     # VALUES ('Jar-Jar Binks', 1)
     def create(attrs)
       attrs = BlocRecord::Utility.convert_keys(attrs)
-      attrs.delete("id")
-      vals = attributes.map {|key| BlocRecord::Utility.sql_strings(attrs[key])}
+      begin
+        if Validation.validate(schema, attrs)
+          attrs.delete("id")
+          vals = attributes.map {|key| BlocRecord::Utility.sql_strings(attrs[key])}
+          connection.execute <<-SQL
+            INSERT INTO #{table} (#{attributes.join(",")})
+            VALUES (#{vals.join(",")});
+          SQL
 
-      connection.execute <<-SQL
-        INSERT INTO #{table} (#{attributes.join(",")})
-        VALUES (#{vals.join(",")});
-      SQL
-
-      # This creates 'data', a hash of attributes and values.
-      # data = {"name"=>"Jar-Jar Binks", "rating"=>1}
-      # SELECT last_insert_rowid(); returns the ROW ID of the last row insert.
-      # new calls the create method in the base class and returns the result.
-      data = Hash[attributes.zip(attrs.values)]
-      data["id"] = connection.execute("SELECT last_insert_rowid();")[0][0]
-      new(data)
+          data = Hash[attributes.zip(attrs.values)]
+          data["id"] = connection.execute("SELECT last_insert_rowid();")[0][0]
+          new(data)
+        else
+          raise "Invalid Input for table(#{table})"
+        end
+      rescue Exception => e
+        puts e.message
+        # puts e.backtrace.inspect
+      end
     end
 
     # Update Multiple Attributes With a Class Method

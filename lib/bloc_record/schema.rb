@@ -5,6 +5,7 @@ require 'sqlite3'
 require 'bloc_record/utility'
 
 module Schema
+  extend self
 
   # This method allows us to call 'table' on an object class to get its SQL table name.
   # e.g. BookAuthor.table would return book_author.
@@ -31,7 +32,7 @@ module Schema
     # (eager loading: @schema is calculated when the model object is initialized.)
     unless @schema
       @schema = {}
-      connection.table_info(table) do |col|
+      Connection.connection.table_info(table) do |col|
         @schema[col["name"]] = col["type"]
       end
     end
