@@ -6,6 +6,7 @@ require 'bloc_record/persistence'
 require 'bloc_record/selection'
 require 'bloc_record/connection'
 require 'bloc_record/collection'
+require 'bloc_record/array'  # Require the Array that has a custom ".where" method.
 
 module BlocRecord
   class Base
