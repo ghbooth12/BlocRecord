@@ -55,6 +55,12 @@ module Persistence
     self.class.update(self.id, updates)
   end
 
+  # e = Entry.first
+  # e.destroy
+  def destroy
+    self.class.destroy(self.id)
+  end
+
   # create method needs to be a class method. Because we can't call "create" on an object which doesn't exist.
   module ClassMethods
     # attrs is a hash just like the one in the base class initializer.
@@ -112,6 +118,43 @@ module Persistence
     # Update Multiple Attributes on All Records
     def update_all(updates)
       update(nil, updates)
+    end
+
+    # Class Method to Delete One Item / Multiple Items
+    # Entry.destroy(15) / Entry.destroy(1, 2, 3)
+    def destroy(*ids)
+      if ids.length > 1
+        where_clause = "WHERE id IN (#{ids.join(',')});"
+      else
+        where_clause = "WHERE id = #{id.first};"
+      end
+
+      connection.execute <<-SQL
+        DELETE FROM #{table}
+        #{where_clause}
+      SQL
+
+      true
+    end
+
+    # Entry.destroy_all
+    # Entry.destroy_all(age: 20)
+    def destroy_all(conditions_hash=nil)
+      if conditions_hash && !conditions_hash.empty?
+        conditions_hash = BlocRecord::Utility.convert_keys(conditions_hash)
+        conditions = conditions_hash.map {|key, value| "#{key} = #{BlocRecord::Utility.sql_strings(value)}"}.join(' and ')
+
+        connection.execute <<-SQL
+          DELETE FROM #{table}
+          WHERE #{conditions};
+        SQL
+      else
+        connection.execute <<-SQL
+          DELETE FROM #{table}
+        SQL
+      end
+
+      true
     end
   end # Ends ClassMethods
 end # Ends Persistence
