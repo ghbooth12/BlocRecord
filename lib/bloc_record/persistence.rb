@@ -131,7 +131,7 @@ module Persistence
       if ids.length > 1
         where_clause = "WHERE id IN (#{ids.join(',')});"
       else
-        where_clause = "WHERE id = #{id.first};"
+        where_clause = "WHERE id = #{ids.first};"
       end
 
       connection.execute <<-SQL
@@ -142,22 +142,32 @@ module Persistence
       true
     end
 
-    # Entry.destroy_all
-    # Entry.destroy_all(age: 20)
-    def destroy_all(conditions_hash=nil)
-      if conditions_hash && !conditions_hash.empty?
-        conditions_hash = BlocRecord::Utility.convert_keys(conditions_hash)
-        conditions = conditions_hash.map {|key, value| "#{key} = #{BlocRecord::Utility.sql_strings(value)}"}.join(' and ')
-
-        connection.execute <<-SQL
-          DELETE FROM #{table}
-          WHERE #{conditions};
-        SQL
-      else
+    def destroy_all(*args)
+      if args.empty?  # When Entry.destroy_all, so args is [].
         connection.execute <<-SQL
           DELETE FROM #{table}
         SQL
+        return true
       end
+
+      if args.count > 1  # Entry.destroy_all("phone_number = ?", '999-999-9999')
+        expression = args.shift  # Removes the first element and returns it.
+        params = args
+      else
+        case args.first
+        when Hash  # Entry.destroy_all(age: 20)
+          conditions = BlocRecord::Utility.convert_keys(args.first)
+          expression = conditions.map {|key, value| "#{key} = #{BlocRecord::Utility.sql_strings(value)}"}.join(' and ')
+        when String  # Entry.destroy_all("phone_number = '999-999-9999'")
+          expression = args.first
+        end
+      end
+
+      sql = <<-SQL
+        DELETE FROM #{table}
+        WHERE #{expression};
+      SQL
+      connection.execute(sql, params)  # params is an optional parameter.
 
       true
     end
