@@ -6,6 +6,12 @@ require 'bloc_record/schema'
 require 'bloc_record/validation'
 
 module Persistence
+  def method_missing(m, *args, &block)
+    if m == :update_name
+      update_attribute(:name, args[0])
+    end
+  end
+
   # self.included is called whenever this module is included.
   # When this haapens, extend adds the ClassMethods methods to Persistence.
   def self.included(base)
@@ -97,6 +103,27 @@ module Persistence
     # e.g. Person.update(15, student: false, group: 'member')
     # "ids" can be a number or an array of numbers.
     def update(ids, updates)
+      # people = { 1 => { "first_name" => "David" }, 2 => { "first_name" => "Jeremy" } }
+      # Person.update(people.keys, people.values)
+      if ids.class == Array && updates.class == Array
+        # Each item in "people" executes SQL statement.
+        for i in 0...ids.length
+          updates_array = []
+          hash = updates[i]  # hash: { "first_name" => "David", "age" => 30 }
+
+          for key in hash.keys  # hash.keys: ["first_name", "age"]
+            updates_array << "#{key}=#{BlocRecord::Utility.sql_strings(hash[key])}"
+          end
+
+          connection.execute <<-SQL
+            UPDATE #{table} SET #{updates_array * ','}
+            WHERE id = #{ids[i]}
+          SQL
+        end
+
+        return true
+      end
+
       updates = BlocRecord::Utility.convert_keys(updates)
       updates.delete "id"
 
@@ -118,7 +145,7 @@ module Persistence
       SQL
 
       true
-    end
+    end # Ends update
 
     # Update Multiple Attributes on All Records
     def update_all(updates)
