@@ -7,5 +7,12 @@ module BlocRecord
       # update is a class method.
       self.any? ? self.first.class.update(ids, updates) : false
     end
+
+    # Person.all.group(:name)
+    # Person.all.group(:name, :age)
+    def group(*args)
+      ids = self.map(&:id) # self.map {|obj| obj.id}
+      self.any? ? self.first.class.group_by_ids(ids, args) : false
+    end
   end
 end
