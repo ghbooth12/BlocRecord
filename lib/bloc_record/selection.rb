@@ -209,10 +209,12 @@ module Selection
     begin
       missing_cols = verify_columns(fields)
       if missing_cols.empty?
+        # "id" is added! So Entry.select(:name).distinct or more will work using "id".
         rows = connection.execute <<-SQL
-        SELECT #{fields * ", "} FROM #{table};
+          SELECT id, #{fields * ", "} FROM #{table};
         SQL
 
+        fields.unshift("id") # Add "id" to fields
         collection = BlocRecord::Collection.new
         rows.each {|row| collection << new(Hash[fields.zip(row)])} # Note: It's "fields"! Not "columns".
         collection
@@ -221,6 +223,8 @@ module Selection
       end
     rescue Exception => e
       puts e.message
+      # Returning a collection instance will handle "Entry.select(:bad_column).distinct" without an error.
+      BlocRecord::Collection.new
     end
   end
 
@@ -259,6 +263,19 @@ module Selection
       GROUP BY #{args.join(', ')}
     SQL
     rows_to_array(rows)
+  end
+
+  def distinct_with_ids(ids)
+    rows = connection.execute <<-SQL
+      SELECT DISTINCT #{attributes.join(', ')} FROM #{table}
+      WHERE id IN (#{ids.join(', ')});
+    SQL
+
+    collection = BlocRecord::Collection.new
+    # rows won't have "id" columns so "rows_to_array" can't be used because it uses "columns":
+    # new(Hash[columns.zip(row)])
+    rows.each {|row| collection << new(Hash[attributes.zip(row)])}
+    collection
   end
 
   private

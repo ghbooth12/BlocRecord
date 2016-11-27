@@ -14,5 +14,11 @@ module BlocRecord
       ids = self.map(&:id) # self.map {|obj| obj.id}
       self.any? ? self.first.class.group_by_ids(ids, args) : false
     end
+
+    # Entry.select(:name).distinct
+    def distinct
+      ids = self.map(&:id)  # self.map {|obj| obj.id}
+      self.any? ? self.first.class.distinct_with_ids(ids) : false
+    end
   end
 end
