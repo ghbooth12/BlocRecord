@@ -204,6 +204,54 @@ module Selection
     rows_to_array(rows)
   end # Ends join()
 
+  # Entry.select(:name)
+  def select(*fields)
+    rows = connection.execute <<-SQL
+      SELECT #{fields * ", "} FROM #{table};
+    SQL
+
+    collection = BlocRecord::Collection.new
+    rows.each {|row| collection << new(Hash[fields.zip(row)])} # Note: It's "fields"! Not "columns".
+    collection
+  end
+
+  # Entry.limit(5)
+  # Entry.limit(5, 10): Returns 5 rows except first 10 rows.
+  def limit(value, offset=0)
+    rows = connection.execute <<-SQL
+      SELECT * FROM #{table}
+      LIMIT #{value}
+      OFFSET #{offset};
+    SQL
+    rows_to_array(rows)
+  end
+
+  # Person.group(:name)
+  # Person.group(:name, :age): Group rows by :name then group them by :age again.
+  # sqlite> select *, count(*) from entry group by name, phone_number;
+  # id          address_book_id  name        phone_number  email          count(*)
+  # ----------  ---------------  ----------  ------------  -------------  ----------
+  # 1           1                Bar         111-111-1111  one@email.com  1
+  # 2           1                Bar         222-222-2222  two@email.com  1
+  # 5           1                Bar         777-777-7777  @email.com     3
+  # 6           1                Foo         111-111-1111  foo@foo        1
+  def group(*args)
+    rows = connection.execute <<-SQL
+      SELECT * FROM #{table}
+      GROUP BY #{args.join(', ')};
+    SQL
+    rows_to_array(rows)
+  end
+
+  def group_by_ids(ids, *args)
+    rows = connection.execute <<-SQL
+      SELECT * FROM #{table}
+      WHERE id IN (#{ids.join(', ')})
+      GROUP BY #{args.join(', ')}
+    SQL
+    rows_to_array(rows)
+  end
+
   private
   def init_object_from_row(row)
     if row
