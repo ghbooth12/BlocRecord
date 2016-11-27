@@ -206,13 +206,22 @@ module Selection
 
   # Entry.select(:name)
   def select(*fields)
-    rows = connection.execute <<-SQL
-      SELECT #{fields * ", "} FROM #{table};
-    SQL
+    begin
+      missing_cols = verify_columns(fields)
+      if missing_cols.empty?
+        rows = connection.execute <<-SQL
+        SELECT #{fields * ", "} FROM #{table};
+        SQL
 
-    collection = BlocRecord::Collection.new
-    rows.each {|row| collection << new(Hash[fields.zip(row)])} # Note: It's "fields"! Not "columns".
-    collection
+        collection = BlocRecord::Collection.new
+        rows.each {|row| collection << new(Hash[fields.zip(row)])} # Note: It's "fields"! Not "columns".
+        collection
+      else # fields is [] or contains a non-existing column name.
+        raise "MissingAttributeError: missing attribute: <#{missing_cols.join(', ')}>"
+      end
+    rescue Exception => e
+      puts e.message
+    end
   end
 
   # Entry.limit(5)
@@ -265,5 +274,21 @@ module Selection
     collection = BlocRecord::Collection.new
     rows.each {|row| collection << new(Hash[columns.zip(row)])}
     collection
+  end
+
+  # This method checks if the given fields exist as columns in the database.
+  def verify_columns(fields)
+    missing_cols = []
+
+    if fields.empty?
+      missing_cols << ""
+    else
+      for f in fields
+        # If "f" doesn't exist in columns, it is added to missing_cols.
+        missing_cols << f.to_s unless columns.include?(f.to_s)
+      end
+    end
+    # Return [] when all the elements in the fields exist in the columns.
+    missing_cols
   end
 end
