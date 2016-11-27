@@ -206,13 +206,26 @@ module Selection
 
   # Entry.select(:name)
   def select(*fields)
-    rows = connection.execute <<-SQL
-      SELECT #{fields * ", "} FROM #{table};
-    SQL
+    begin
+      missing_cols = verify_columns(fields)
+      if missing_cols.empty?
+        # "id" is added! So Entry.select(:name).distinct or more will work using "id".
+        rows = connection.execute <<-SQL
+          SELECT id, #{fields * ", "} FROM #{table};
+        SQL
 
-    collection = BlocRecord::Collection.new
-    rows.each {|row| collection << new(Hash[fields.zip(row)])} # Note: It's "fields"! Not "columns".
-    collection
+        fields.unshift("id") # Add "id" to fields
+        collection = BlocRecord::Collection.new
+        rows.each {|row| collection << new(Hash[fields.zip(row)])} # Note: It's "fields"! Not "columns".
+        collection
+      else # fields is [] or contains a non-existing column name.
+        raise "MissingAttributeError: missing attribute: <#{missing_cols.join(', ')}>"
+      end
+    rescue Exception => e
+      puts e.message
+      # Returning a collection instance will handle "Entry.select(:bad_column).distinct" without an error.
+      BlocRecord::Collection.new
+    end
   end
 
   # Entry.limit(5)
@@ -252,6 +265,19 @@ module Selection
     rows_to_array(rows)
   end
 
+  def distinct_with_ids(ids)
+    rows = connection.execute <<-SQL
+      SELECT DISTINCT #{attributes.join(', ')} FROM #{table}
+      WHERE id IN (#{ids.join(', ')});
+    SQL
+
+    collection = BlocRecord::Collection.new
+    # rows won't have "id" columns so "rows_to_array" can't be used because it uses "columns":
+    # new(Hash[columns.zip(row)])
+    rows.each {|row| collection << new(Hash[attributes.zip(row)])}
+    collection
+  end
+
   private
   def init_object_from_row(row)
     if row
@@ -265,5 +291,21 @@ module Selection
     collection = BlocRecord::Collection.new
     rows.each {|row| collection << new(Hash[columns.zip(row)])}
     collection
+  end
+
+  # This method checks if the given fields exist as columns in the database.
+  def verify_columns(fields)
+    missing_cols = []
+
+    if fields.empty?
+      missing_cols << ""
+    else
+      for f in fields
+        # If "f" doesn't exist in columns, it is added to missing_cols.
+        missing_cols << f.to_s unless columns.include?(f.to_s)
+      end
+    end
+    # Return [] when all the elements in the fields exist in the columns.
+    missing_cols
   end
 end
